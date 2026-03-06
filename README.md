@@ -11,7 +11,7 @@ Tài liệu này được xây dựng dựa trên bản phân tích kiến trúc
  Hệ thống vận hành theo chu trình 7 bước (State Machine) thông qua file `telegram_twitter_orchestrator.py`:
 
 1. **Telegram Trigger:** Người dùng nhắn lệnh `/scan` cho Bot Telegram.
-2. **Twitter Fetch & Select:** Bot dùng Tweepy gọi Twitter API v2 để kéo (fetch) các bài post mới nhất từ các tài khoản (KOLs) được chỉ định trước. Bot gửi danh sách các tweet này về Telegram để người dùng chọn bài phân tích (bằng lệnh `/analyze`).
+2. **Twitter Fetch & Select:** Bot dùng Playwright mở trình duyệt ẩn danh phía background để kéo (scrape) các bài post mới nhất từ các tài khoản (KOLs) được chỉ định trước (Cách này lách luật được biểu phí 100$/tháng của API v2). Bot gửi danh sách các tweet này về Telegram để người dùng chọn bài phân tích (bằng lệnh `/analyze`).
 3. **AI Scaffold Analysis (Claude CLI):** Các tweet **được chọn** sẽ được truyền thẳng vào **Claude Code CLI** dưới background. Claude trực tiếp thực thi các framework tùy chỉnh (`/scaffold` và `/cot`) để phân tích, tổng hợp và đề xuất một **Use Case thực tiễn**.
 4. **Git Sync:** Nội dung Use Case được lưu xuất thành Markdown (`.md`) và được tự động commit & push lên trực tiếp repository GitHub của Tool này (`outputs/usecases/`).
 5. **Approval 1 (Use Case):** Bot Telegram gửi cho bạn link/summary Use Case. Tại đây, bạn có quyền Duyệt (nhắn lệnh `/approve_usecase`) hoặc Từ chối (`/cancel`).
@@ -64,6 +64,13 @@ $env:TWITTER_BEARER_TOKEN="..."
 
 **Bước 3: Chỉ định danh sách theo dõi**
 Tìm biến `TARGET_TWITTER_HANDLES = ["sama", "elonmusk", "ylecun"]` và đổi tên acc thành nguồn dữ liệu bạn muốn AI phân tích.
+
+**Bước 4: Xác thực Twitter (Chỉ làm 1 lần)**
+Vì chúng ta dùng Playwright scrape timeline để lách giới hạn API Free, bạn cần đăng nhập Twitter vào file hệ thống:
+```bash
+python twitter_auth.py
+```
+*(Trình duyệt sẽ mở, bạn đăng nhập xong là nó tự đóng và lưu file bảo mật `twitter_state.json`)*.
 
 ---
 

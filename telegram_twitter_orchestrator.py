@@ -60,28 +60,53 @@ def init_twitter_client():
     )
     return client
 
-def scan_target_tweets(client):
-    """Scan recent tweets from predefined target handles."""
+from playwright.sync_api import sync_playwright
+
+def scan_target_tweets():
+    """Scrape recent tweets from predefined target handles using Playwright."""
+    STATE_FILE = os.path.join(WORKSPACE_DIR, "twitter_state.json")
+    if not os.path.exists(STATE_FILE):
+        return ["⚠️ ERROR: Cannot find twitter_state.json. Please run `python twitter_auth.py` first to log in."]
+        
+    logger.info("Starting headless Playwright scraper...")
     all_tweets = []
     try:
-        # For simplicity, we get users and fetch latest tweets manually
-        # Note: Twitter Free Tier does not support 'get_users_tweets'.
-        # You will need at least Basic Tier ($100/mo) for this.
-        # Alternatively, use standard API v1 if available, or fetch via other means.
-        users = client.get_users(usernames=TARGET_TWITTER_HANDLES)
-        if not users.data:
-            return []
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                storage_state=STATE_FILE,
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
             
-        for user in users.data:
-            response = client.get_users_tweets(user.id, max_results=5, exclude=['retweets', 'replies'])
-            if response.data:
-                for tweet in response.data:
-                    all_tweets.append(f"From @{user.username}: {tweet.text}")
-                    
-        return all_tweets
+            for handle in TARGET_TWITTER_HANDLES:
+                logger.info(f"Scraping @{handle}...")
+                page.goto(f"https://twitter.com/{handle}", wait_until="networkidle")
+                
+                # Wait for tweets to appear
+                try:
+                    page.wait_for_selector('article[data-testid="tweet"]', timeout=15000)
+                except Exception:
+                    logger.warning(f"Could not find tweets for @{handle} (Timeout or Private Account)")
+                    continue
+                
+                # Fetch top 5 tweets
+                articles = page.locator('article[data-testid="tweet"]').all()[:5]
+                
+                for article in articles:
+                    tweet_text_locator = article.locator('[data-testid="tweetText"]')
+                    if tweet_text_locator.count() > 0:
+                        text = tweet_text_locator.inner_text().strip()
+                        if text:
+                            # Replace new lines to save space
+                            all_tweets.append(f"From @{handle}: {text.replace(chr(10), ' ')}")
+                            
+            browser.close()
+            return all_tweets
     except Exception as e:
-        logger.error(f"Twitter API Error: {e}")
-        return [f"Debug Mock Tweet: The future of AI is agentic workflows. (From API Error: {str(e)})"]
+        logger.error(f"Playwright Error: {e}")
+        return [f"Debug Mock Tweet: Playwright failed. Error: {e}"]
 
 def execute_git_commands(filepath):
     """Commit the file to Git and push to remote."""
@@ -183,9 +208,8 @@ async def scan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await restrict_access(update): return
     chat_id = update.effective_chat.id
     
-    await update.message.reply_text("🔍 Connecting to Twitter API to fetch target accounts...")
-    twitter_client = init_twitter_client()
-    tweets = scan_target_tweets(twitter_client)
+    await update.message.reply_text("🔍 Starting Headless Browser (Playwright) to scrape latest target accounts...")
+    tweets = scan_target_tweets()
     
     if not tweets:
         await update.message.reply_text("⚠️ No tweets found or API limits reached. (Check console logs). Aborting.")
