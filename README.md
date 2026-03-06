@@ -11,8 +11,8 @@ Tài liệu này được xây dựng dựa trên bản phân tích kiến trúc
  Hệ thống vận hành theo chu trình 7 bước (State Machine) thông qua file `telegram_twitter_orchestrator.py`:
 
 1. **Telegram Trigger:** Người dùng nhắn lệnh `/scan` cho Bot Telegram.
-2. **Twitter Fetch:** Bot dùng Tweepy gọi Twitter API v2 để kéo (fetch) các bài post mới nhất từ các tài khoản (KOLs) được chỉ định trước.
-3. **AI Scaffold Analysis (Claude CLI):** Các tweet được truyền thẳng vào **Claude Code CLI** dưới background. Claude trực tiếp thực thi các framework tùy chỉnh (`/scaffold` và `/cot`) để phân tích, tổng hợp và đề xuất một **Use Case thực tiễn**.
+2. **Twitter Fetch & Select:** Bot dùng Tweepy gọi Twitter API v2 để kéo (fetch) các bài post mới nhất từ các tài khoản (KOLs) được chỉ định trước. Bot gửi danh sách các tweet này về Telegram để người dùng chọn bài phân tích (bằng lệnh `/analyze`).
+3. **AI Scaffold Analysis (Claude CLI):** Các tweet **được chọn** sẽ được truyền thẳng vào **Claude Code CLI** dưới background. Claude trực tiếp thực thi các framework tùy chỉnh (`/scaffold` và `/cot`) để phân tích, tổng hợp và đề xuất một **Use Case thực tiễn**.
 4. **Git Sync:** Nội dung Use Case được lưu xuất thành Markdown (`.md`) và được tự động commit & push lên trực tiếp repository GitHub của Tool này (`outputs/usecases/`).
 5. **Approval 1 (Use Case):** Bot Telegram gửi cho bạn link/summary Use Case. Tại đây, bạn có quyền Duyệt (nhắn lệnh `/approve_usecase`) hoặc Từ chối (`/cancel`).
 6. **AI Implementation & Approval 2:** Nếu duyệt, hệ thống gọi Claude CLI lần thứ hai để từ Markdown đó "dịch" ra một bài Post Twitter hoàn chỉnh. Bản nháp được gửi lại qua Telegram để bạn duyệt lần 2 (`/approve_post`).
@@ -80,7 +80,11 @@ Mở ứng dụng Telegram, vào chat với con Bot của bạn và sử dụng 
 
 - Ngay khi có hứng tìm ý tưởng, gõ lệnh:
   👉 `/scan`
-  *(Bot sẽ thông báo đang kéo Twitter về cho Claude phân tích. Đợi khoảng ~30 giây vì Claude CLI cần parse file).*
+  *(Bot sẽ kết nối Twitter, kéo các bài viết mới về và hiển thị thành danh sách đánh số 1, 2, 3... cho bạn chọn).*
+
+- Đọc qua danh sách, bạn chọn các tweet thấy hứng thú và gõ lệnh:
+  👉 `/analyze 1,3` (Chọn bài số 1 và số 3)
+  *(Claude Code CLI sẽ bắt đầu nạp nội dung để phân tích. Đợi khoảng ~30 giây vì phân rã /scaffold tốn thời gian).*
 
 - Bot sẽ trả về tin nhắn:
   `🎉 Use Case Generated! ✅ Synced to GitHub....`

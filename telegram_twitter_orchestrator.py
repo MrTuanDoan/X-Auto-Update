@@ -35,7 +35,7 @@ OUTPUT_DIR = os.path.join(WORKSPACE_DIR, "outputs", "usecases")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Central memory to track bot states
-# structure: { chat_id: { "state": "IDLE" | "WAITING_USECASE_APPROVAL" | "WAITING_POST_APPROVAL", "pending_usecase": "", "pending_tweet": "" } }
+# structure: { chat_id: { "state": "IDLE" | "WAITING_TWEET_SELECTION" | "WAITING_USECASE_APPROVAL" | "WAITING_POST_APPROVAL", "pending_tweets": [], "pending_usecase": "", "pending_tweet": "" } }
 app_state = {}
 
 # =============================================================================
@@ -172,7 +172,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await restrict_access(update): return
     await update.message.reply_text(
         "👋 Welcome! Available commands:\n"
-        "/scan - Read following tweets -> generate Scaffold Use Case -> Push to GitHub -> Request your approval.\n"
+        "/scan - Fetch recent tweets and list them for your selection.\n"
+        "/analyze 1,3 - Analyze the selected tweets, generate Use Case, and Push to GitHub.\n"
         "/approve_usecase - Approve the Use Case and generate a draft tweet.\n"
         "/approve_post - Approve the draft and post to your Twitter timeline.\n"
         "/cancel - Abort current operation."
@@ -190,9 +191,56 @@ async def scan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ No tweets found or API limits reached. (Check console logs). Aborting.")
         return
         
-    await update.message.reply_text(f"✅ Fetched {len(tweets)} recent tweets. 🤖 Running /cot and /scaffold AI generation...")
+    # Store fetched tweets
+    app_state[chat_id] = {
+        "state": "WAITING_TWEET_SELECTION",
+        "pending_tweets": tweets
+    }
     
-    usecase_content = ai_generate_scaffold_usecase(tweets)
+    await update.message.reply_text(f"✅ Fetched {len(tweets)} recent tweets. Here they are:")
+    
+    # Send tweets out nicely formatted with index
+    # Note: Telegram message limit is 4096 chars, so we send them in chunks or one by one
+    for idx, t in enumerate(tweets):
+        await update.message.reply_text(f"*[{idx + 1}]* {t}", parse_mode='Markdown')
+        
+    await update.message.reply_text("➡️ Decide which ones are interesting! Reply with `/analyze 1,3` or `/analyze 2` to start the AI Scaffold Analysis.", parse_mode='Markdown')
+
+async def analyze_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await restrict_access(update): return
+    chat_id = update.effective_chat.id
+    state = app_state.get(chat_id, {})
+    
+    if state.get("state") != "WAITING_TWEET_SELECTION" or "pending_tweets" not in state:
+        await update.message.reply_text("⚠️ No pending tweets to analyze. Please run /scan first.")
+        return
+        
+    if not context.args:
+        await update.message.reply_text("⚠️ Please provide indices of tweets to analyze, e.g., `/analyze 1,3`", parse_mode='Markdown')
+        return
+
+    # Parse args (could be '1,3' or '1', '2' etc)
+    raw_indices_str = "".join(context.args)
+    try:
+        selected_indices = [int(x.strip()) - 1 for x in raw_indices_str.split(',')]
+    except ValueError:
+        await update.message.reply_text("⚠️ Invalid format. Please use numbers separated by commas, e.g., `/analyze 1,3`", parse_mode='Markdown')
+        return
+        
+    tweets = state["pending_tweets"]
+    selected_tweets = []
+    
+    for idx in selected_indices:
+        if 0 <= idx < len(tweets):
+            selected_tweets.append(tweets[idx])
+            
+    if not selected_tweets:
+        await update.message.reply_text("⚠️ None of the indices matched any tweets. Please try again.")
+        return
+        
+    await update.message.reply_text(f"🤖 Running /cot and /scaffold AI generation on {len(selected_tweets)} selected tweets...")
+    
+    usecase_content = ai_generate_scaffold_usecase(selected_tweets)
     
     # Save file
     filename = f"scaffold-{datetime.now().strftime('%Y%m%d-%H%M%S')}-usecase.md"
@@ -205,7 +253,7 @@ async def scan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     success = execute_git_commands(filepath)
     git_msg = "✅ Synced to GitHub." if success else "⚠️ Failed to sync to GitHub."
     
-    # Store State
+    # Store State for next step
     app_state[chat_id] = {
         "state": "WAITING_USECASE_APPROVAL",
         "pending_usecase": usecase_content
@@ -285,6 +333,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("scan", scan_cmd))
+    app.add_handler(CommandHandler("analyze", analyze_cmd))
     app.add_handler(CommandHandler("approve_usecase", approve_usecase_cmd))
     app.add_handler(CommandHandler("approve_post", approve_post_cmd))
     app.add_handler(CommandHandler("cancel", cancel_cmd))
