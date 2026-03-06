@@ -13,7 +13,7 @@ Tài liệu này được xây dựng dựa trên bản phân tích kiến trúc
 1. **Telegram Trigger:** Người dùng nhắn lệnh `/scan` cho Bot Telegram.
 2. **Twitter Fetch:** Bot dùng Tweepy gọi Twitter API v2 để kéo (fetch) các bài post mới nhất từ các tài khoản (KOLs) được chỉ định trước.
 3. **AI Scaffold Analysis (Claude CLI):** Các tweet được truyền thẳng vào **Claude Code CLI** dưới background. Claude trực tiếp thực thi các framework tùy chỉnh (`/scaffold` và `/cot`) để phân tích, tổng hợp và đề xuất một **Use Case thực tiễn**.
-4. **Git Sync:** Nội dung Use Case được lưu xuất thành Markdown (`.md`) và được tự động commit & push lên repository GitHub (`scaffold-cot/outputs/`).
+4. **Git Sync:** Nội dung Use Case được lưu xuất thành Markdown (`.md`) và được tự động commit & push lên trực tiếp repository GitHub của Tool này (`outputs/usecases/`).
 5. **Approval 1 (Use Case):** Bot Telegram gửi cho bạn link/summary Use Case. Tại đây, bạn có quyền Duyệt (nhắn lệnh `/approve_usecase`) hoặc Từ chối (`/cancel`).
 6. **AI Implementation & Approval 2:** Nếu duyệt, hệ thống gọi Claude CLI lần thứ hai để từ Markdown đó "dịch" ra một bài Post Twitter hoàn chỉnh. Bản nháp được gửi lại qua Telegram để bạn duyệt lần 2 (`/approve_post`).
 7. **Twitter Publisher:** Sau khi chốt, Bot sẽ đính kèm bản nháp bắn thẳng lên tài khoản Twitter cá nhân của bạn thông qua Twitter API.

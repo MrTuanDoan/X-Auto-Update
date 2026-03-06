@@ -31,7 +31,7 @@ TARGET_TWITTER_HANDLES = ["techhalla", "godofprompt"] # Example: Replace with yo
 
 # Workspace config
 WORKSPACE_DIR = os.getenv("WORKSPACE_DIR", os.path.dirname(os.path.abspath(__file__)))
-OUTPUT_DIR = os.path.join(WORKSPACE_DIR, "scaffold-cot", "outputs")
+OUTPUT_DIR = os.path.join(WORKSPACE_DIR, "outputs", "usecases")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Central memory to track bot states
